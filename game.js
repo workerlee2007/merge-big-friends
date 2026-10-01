@@ -1,19 +1,20 @@
 (() => {
   "use strict";
-  const W=420,H=700,DANGER=116,R=[18,22,27,33,40,49,59,70,83,98,116];
-  const C=["#45d7ff","#77e6cb","#a9ef78","#ffe06b","#ffb45f","#ff8d72","#ff70a8","#d786ff","#9f8cff","#6ea5ff","#ffd34e"];
+  const W=420,H=700,DANGER=116,R=[17,21,26,32,39,47,57,68,81,96,112,130,150];
+  const C=["#45d7ff","#77e6cb","#a9ef78","#ffe06b","#ffb45f","#ff8d72","#ff70a8","#d786ff","#9f8cff","#6ea5ff","#ffd34e","#ff9bde","#fff08a"];
   const T=[
-    ["characters/09.png",.5,.5,1,"认真脸"],["characters/04.png",.5,.5,1,"回眸笑"],["characters/05.png",.5,.5,1,"包饺子"],
-    ["characters/02.png",.5,.5,1,"骰子王"],["characters/06.png",.5,.5,1,"台上范"],["characters/03.png",.5,.5,1,"骑车侠"],
-    ["characters/11.png",.5,.5,1,"困困版"],["characters/10.png",.5,.5,1,"宿舍版"],["characters/08.png",.5,.5,1,"麦霸版"],
-    ["characters/01.png",.5,.5,1,"大碗王"],["characters/07.png",.5,.5,1,"终极教官"]
+    ["characters/new-01.png",.5,.5,1,"儿时奕轩"],["characters/new-02.png",.5,.5,1,"VR奕轩"],["characters/05.png",.5,.5,1,"高市罗锴"],
+    ["characters/02.png",.5,.5,1,"博饼祖延"],["characters/06.png",.5,.5,1,"团日罗锴"],["characters/03.png",.5,.5,1,"骑车仕钰"],
+    ["characters/11.png",.5,.5,1,"睡觉仕钰"],["characters/new-03.png",.5,.5,1,"Daddy罗锴"],["characters/08.png",.5,.5,1,"唱歌仕钰"],
+    ["characters/new-04.png",.5,.5,1,"蹲着的罗锴"],["characters/07.png",.5,.5,1,"军训仕钰"],["characters/new-05.png",.5,.5,1,"大树祖延"],
+    ["characters/new-06.png",.5,.5,1,"小红帽仕钰"]
   ];
   const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const canvas=$("#game"),ctx=canvas.getContext("2d"),imgs=T.map(t=>Object.assign(new Image(),{src:`./${t[0]}`}));
   const bgImage=Object.assign(new Image(),{src:"./background-dorm.jpeg"});
   let balls=[],id=1,aim=W/2,next=0,score=0,best=+(localStorage.getItem("friend-merge-best")||0);
   let cooldown=0,over=false,muted=localStorage.getItem("friend-merge-muted")==="1",last=0,pointerDown=false;
-  const ball=(tier,x,y)=>({id:id++,tier,x,y,vx:0,vy:0,r:R[tier],age:0,over:0,squash:0,dead:false});
+  const ball=(tier,x,y)=>({id:id++,tier,x,y,vx:0,vy:0,r:R[tier],age:0,over:0,squash:0,nameTimer:0,dead:false});
   function ping(pitch=440,d=.06){
     if(muted)return;
     try{const A=window.AudioContext||window.webkitAudioContext;if(!A)return;const a=new A(),o=a.createOscillator(),g=a.createGain();o.frequency.value=pitch;g.gain.setValueAtTime(.055,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);o.connect(g).connect(a.destination);o.start();o.stop(a.currentTime+d)}catch{}
@@ -21,12 +22,14 @@
   function updateUI(){
     $("#score").textContent=score;$("#best").textContent=Math.max(best,score);$("#nextLabel").textContent=T[next][4];
     $("#nextImage").src=`./${T[next][0]}`;$("#nextImage").alt=T[next][4];$("#nextImage").style.objectPosition=`${T[next][1]*100}% ${T[next][2]*100}%`;
+    const maxBall=balls.reduce((m,b)=>!b.dead&&(!m||b.tier>m.tier)?b:m,null),maxImage=$("#maxImage");
+    if(maxBall){$("#maxLabel").textContent=T[maxBall.tier][4];maxImage.src=`./${T[maxBall.tier][0]}`;maxImage.alt=T[maxBall.tier][4];maxImage.style.visibility="visible"}else{$("#maxLabel").textContent="暂无";maxImage.removeAttribute("src");maxImage.alt="";maxImage.style.visibility="hidden"}
     $("#nextAvatar").style.borderColor=C[next];$("#mute").textContent=muted?"🔇 音效关":"🔊 音效开";
   }
   function reset(){balls=[];score=0;aim=W/2;next=Math.floor(Math.random()*5);cooldown=0;over=false;$("#gameOver").classList.add("hidden");updateUI()}
   function drop(){
     if(over||performance.now()<cooldown)return;
-    const b=ball(next,clamp(aim,R[next]+4,W-R[next]-4),66);b.vy=30;balls.push(b);cooldown=performance.now()+340;
+    const b=ball(next,clamp(aim,R[next]+4,W-R[next]-4),66);b.vy=30;b.nameTimer=1.55;balls.push(b);cooldown=performance.now()+340;
     next=Math.floor(Math.random()*5);ping(260+b.tier*35,.05);updateUI();
   }
   function finish(){
@@ -41,12 +44,13 @@
     if(im.complete&&im.naturalWidth){const scale=Math.min(maxW/im.naturalWidth,maxH/im.naturalHeight),dw=im.naturalWidth*scale,dh=im.naturalHeight*scale;ctx.drawImage(im,-dw/2,-dh/2,dw,dh)}
     else{ctx.fillStyle=C[b.tier];ctx.beginPath();ctx.roundRect(-b.r*.7,-b.r,b.r*1.4,b.r*2,b.r*.35);ctx.fill()}
     ctx.restore();
+    if(b.nameTimer>0){const label=T[b.tier][4],alpha=Math.min(1,b.nameTimer*1.8),fontSize=clamp(9+b.tier*.45,9,14);ctx.save();ctx.globalAlpha=alpha;ctx.font=`700 ${fontSize}px "PingFang SC",sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle";const tw=ctx.measureText(label).width,pad=6,lw=tw+pad*2,ly=b.y+b.r+15;ctx.fillStyle="rgba(5,10,24,.82)";ctx.beginPath();ctx.roundRect(b.x-lw/2,ly-fontSize*.8,lw,fontSize*1.6,8);ctx.fill();ctx.fillStyle="#fff";ctx.fillText(label,b.x,ly);ctx.restore()}
   }
   function physics(dt){
     let gained=0;
     for(let step=0;step<3;step++){
       const d=dt/3;
-      for(const b of balls){if(b.dead)continue;b.age+=d;b.vy+=1500*d;b.x+=b.vx*d;b.y+=b.vy*d;b.vx*=.999;b.squash*=.86;
+      for(const b of balls){if(b.dead)continue;b.age+=d;b.nameTimer=Math.max(0,b.nameTimer-d);b.vy+=1500*d;b.x+=b.vx*d;b.y+=b.vy*d;b.vx*=.999;b.squash*=.86;
         if(b.x-b.r<0){b.x=b.r;b.squash=Math.max(b.squash,Math.min(.24,Math.abs(b.vx)/650));b.vx=Math.abs(b.vx)*.48}
         if(b.x+b.r>W){b.x=W-b.r;b.squash=Math.max(b.squash,Math.min(.24,Math.abs(b.vx)/650));b.vx=-Math.abs(b.vx)*.48}
         if(b.y+b.r>H){b.y=H-b.r;b.squash=Math.max(b.squash,Math.min(.32,Math.abs(b.vy)/760));b.vy=-Math.abs(b.vy)*.42;b.vx*=.955}}
