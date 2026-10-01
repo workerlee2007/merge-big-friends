@@ -16,6 +16,7 @@
         <div class="board-topline"><span>危险线以上静止 1.5 秒即结束</span><span class="live-dot">LIVE</span></div>
         <div class="canvas-wrap">
           <canvas id="game" aria-label="113合成大朋友游戏区域"></canvas>
+          <div id="toolHint" class="tool-hint hidden"></div>
           <div id="gameOver" class="game-over hidden">
             <span class="kicker">本局结束</span><strong id="finalScore">0</strong><span>最高分 <b id="finalBest">0</b></span>
             <div class="actions"><button data-open-rank>🏆 本机榜</button><button id="again">↻ 再来一局</button></div>
@@ -30,6 +31,7 @@
           <div class="max-card"><div><span>当前最大</span><strong id="maxLabel">暂无</strong></div><div class="max-avatar"><img id="maxImage" alt=""></div></div>
         </div>
         <div class="merge-chain"><span>合成图鉴</span><div id="chain" class="chain-row"></div></div>
+        <div class="power-grid"><button id="bomb">💣 炸弹 ×1</button><button id="shovel">🥄 锅铲 ×1</button></div>
         <div class="button-grid"><button data-open-rank>🏆 排行榜</button><button id="mute">🔊 音效开</button><button id="restart">↻ 重开</button></div>
         <div class="instructions"><p><b>电脑</b> 移动鼠标瞄准，点击投放；← → 微调，空格投放。</p><p><b>手机</b> 按住拖动瞄准，松手投放。</p></div>
       </aside>

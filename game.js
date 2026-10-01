@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const W=420,H=700,DANGER=116,R=[17,21,26,32,39,47,57,68,81,96,112,130,150];
+  const W=420,H=700,DANGER=116,DANGER_TIME=1.5,BOMB_MAX_TIER=4,R=[17,21,26,32,39,47,57,68,81,96,112,130,150];
   const C=["#45d7ff","#77e6cb","#a9ef78","#ffe06b","#ffb45f","#ff8d72","#ff70a8","#d786ff","#9f8cff","#6ea5ff","#ffd34e","#ff9bde","#fff08a"];
   const T=[
     ["characters/new-01.png",.5,.5,1,"儿时奕轩"],["characters/new-02.png",.5,.5,1,"VR奕轩"],["characters/05.png",.5,.5,1,"高市罗锴"],
@@ -15,6 +15,7 @@
   const spritesReady=()=>imgs.every(im=>im.complete&&im.naturalWidth>0);
   let balls=[],id=1,aim=W/2,next=0,score=0,best=+(localStorage.getItem("friend-merge-best")||0);
   let cooldown=0,over=false,muted=localStorage.getItem("friend-merge-muted")==="1",last=0,pointerDown=false;
+  let toolMode=null,bombUses=1,shovelUses=1,effects=[],hintTimer=0;
   const ball=(tier,x,y)=>({id:id++,tier,x,y,vx:0,vy:0,r:R[tier],age:0,over:0,squash:0,nameTimer:0,dead:false});
   function ping(pitch=440,d=.06){
     if(muted)return;
@@ -25,9 +26,11 @@
     $("#nextImage").src=`./${T[next][0]}`;$("#nextImage").alt=T[next][4];$("#nextImage").style.objectPosition=`${T[next][1]*100}% ${T[next][2]*100}%`;
     const maxBall=balls.reduce((m,b)=>!b.dead&&(!m||b.tier>m.tier)?b:m,null),maxImage=$("#maxImage");
     if(maxBall){$("#maxLabel").textContent=T[maxBall.tier][4];maxImage.src=`./${T[maxBall.tier][0]}`;maxImage.alt=T[maxBall.tier][4];maxImage.style.visibility="visible"}else{$("#maxLabel").textContent="暂无";maxImage.removeAttribute("src");maxImage.alt="";maxImage.style.visibility="hidden"}
+    $("#bomb").textContent=`💣 炸弹 ×${bombUses}`;$("#bomb").disabled=!bombUses;$("#bomb").classList.toggle("active",toolMode==="bomb");$("#shovel").textContent=`🥄 锅铲 ×${shovelUses}`;$("#shovel").disabled=!shovelUses;canvas.classList.toggle("bomb-mode",toolMode==="bomb");
     $("#nextAvatar").style.borderColor=C[next];$("#mute").textContent=muted?"🔇 音效关":"🔊 音效开";
   }
-  function reset(){balls=[];score=0;aim=W/2;next=Math.floor(Math.random()*5);cooldown=0;over=false;$("#gameOver").classList.add("hidden");updateUI()}
+  function showHint(message,duration=1500){const hint=$("#toolHint");hint.textContent=message;hint.classList.remove("hidden");clearTimeout(hintTimer);hintTimer=setTimeout(()=>hint.classList.add("hidden"),duration)}
+  function reset(){balls=[];score=0;aim=W/2;next=Math.floor(Math.random()*5);cooldown=0;over=false;toolMode=null;bombUses=1;shovelUses=1;effects=[];$("#gameOver").classList.add("hidden");updateUI()}
   function drop(){
     if(over||!spritesReady()||performance.now()<cooldown)return;
     const b=ball(next,clamp(aim,R[next]+4,W-R[next]-4),66);b.vy=30;b.nameTimer=1.55;balls.push(b);cooldown=performance.now()+340;
@@ -38,6 +41,15 @@
     const name=cleanName($("#playerName").value), rows=readRanks();if(score>0)rows.push({name,score,at:Date.now()});
     rows.sort((a,b)=>b.score-a.score||b.at-a.at);localStorage.setItem("friend-merge-ranks",JSON.stringify(rows.slice(0,20)));
     $("#finalScore").textContent=score;$("#finalBest").textContent=best;$("#gameOver").classList.remove("hidden");ping(120,.35);updateUI();
+  }
+  function bombAt(x,y){
+    const targets=balls.filter(b=>!b.dead&&b.tier<=BOMB_MAX_TIER&&Math.hypot(b.x-x,b.y-y)<=118);
+    if(!targets.length){showHint("附近没有1—5级小人物");return}
+    targets.forEach(b=>b.dead=true);balls=balls.filter(b=>!b.dead);bombUses=0;toolMode=null;effects.push({x,y,t:0});ping(105,.2);showHint(`炸掉了 ${targets.length} 个小人物`);updateUI();
+  }
+  function useShovel(){
+    if(!shovelUses)return;if(!balls.length){showHint("下面还没有人物");return}
+    for(const b of balls){b.vx+=(Math.random()-.5)*520;b.vy=-310-Math.random()*270;b.over=0;b.squash=.25}shovelUses=0;toolMode=null;ping(190,.18);showHint("锅铲翻动完成！");updateUI();
   }
   function drawAvatar(b){
     const im=imgs[b.tier],s=clamp(b.squash||0,0,.34),maxW=b.r*2.34*(1+s*.62),maxH=b.r*2.62*(1-s*.48);
@@ -63,7 +75,9 @@
       if(balls.some(b=>b.dead))balls=balls.filter(b=>!b.dead);
     }
     if(gained){score+=gained;updateUI()}
-    for(const b of balls){const speed=Math.hypot(b.vx,b.vy);if(b.age>.8&&b.y-b.r<DANGER&&speed<135)b.over+=dt;else b.over=Math.max(0,b.over-dt*2);if(b.over>1.45)finish()}
+    // 堆叠中的角色会因重力与碰撞产生轻微数值抖动；允许这种微抖，
+    // 但只要角色仍在明显移动，就立即清零危险线倒计时。
+    for(const b of balls){const settled=Math.abs(b.vx)<120&&Math.abs(b.vy)<120;if(b.age>.8&&b.y-b.r<DANGER&&settled)b.over+=dt;else b.over=0;if(b.over>=DANGER_TIME)finish()}
   }
   function frame(now){
     const dt=Math.min(last?(now-last)/1000:1/60,.025);last=now;if(!over)physics(dt);
@@ -71,16 +85,18 @@
     if(bgImage.complete&&bgImage.naturalWidth){const scale=Math.max(W/bgImage.naturalWidth,H/bgImage.naturalHeight),dw=bgImage.naturalWidth*scale,dh=bgImage.naturalHeight*scale;ctx.save();ctx.filter="brightness(.72) saturate(.78)";ctx.drawImage(bgImage,(W-dw)/2,(H-dh)/2,dw,dh);ctx.restore()}else{ctx.fillStyle="#10182c";ctx.fillRect(0,0,W,H)}
     const shade=ctx.createLinearGradient(0,0,0,H);shade.addColorStop(0,"rgba(5,10,24,.42)");shade.addColorStop(.58,"rgba(5,10,24,.25)");shade.addColorStop(1,"rgba(5,10,24,.5)");ctx.fillStyle=shade;ctx.fillRect(0,0,W,H);
     ctx.setLineDash([7,7]);ctx.strokeStyle="rgba(255,117,144,.76)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,DANGER);ctx.lineTo(W,DANGER);ctx.stroke();
+    const dangerOver=balls.reduce((m,b)=>Math.max(m,b.over||0),0);if(dangerOver>0){const left=Math.max(0,DANGER_TIME-dangerOver);ctx.fillStyle="rgba(255,65,105,.18)";ctx.fillRect(0,0,W,DANGER);ctx.fillStyle="#fff";ctx.font='800 14px "PingFang SC",sans-serif';ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(`危险！连续静止 ${left.toFixed(1)} 秒后结束`,W/2,DANGER-17)}
     ctx.setLineDash([5,6]);ctx.strokeStyle="rgba(126,224,255,.42)";ctx.beginPath();ctx.moveTo(aim,25);ctx.lineTo(aim,92);ctx.stroke();ctx.setLineDash([]);
-    if(spritesReady()){balls.forEach(drawAvatar);ctx.globalAlpha=performance.now()<cooldown?.34:.83;const g=ball(next,clamp(aim,R[next],W-R[next]),66);id--;g.r=R[next]*.86;drawAvatar(g);ctx.globalAlpha=1}else{ctx.fillStyle="rgba(5,10,24,.72)";ctx.beginPath();ctx.roundRect(W/2-70,H/2-22,140,44,14);ctx.fill();ctx.fillStyle="#fff";ctx.font='700 15px "PingFang SC",sans-serif';ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("人物加载中…",W/2,H/2)}requestAnimationFrame(frame);
+    if(spritesReady()){balls.forEach(drawAvatar);ctx.globalAlpha=performance.now()<cooldown?.34:.83;const g=ball(next,clamp(aim,R[next],W-R[next]),66);id--;g.r=R[next]*.86;drawAvatar(g);ctx.globalAlpha=1}else{ctx.fillStyle="rgba(5,10,24,.72)";ctx.beginPath();ctx.roundRect(W/2-70,H/2-22,140,44,14);ctx.fill();ctx.fillStyle="#fff";ctx.font='700 15px "PingFang SC",sans-serif';ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("人物加载中…",W/2,H/2)}effects.forEach(e=>{e.t+=dt;const p=Math.min(1,e.t/.46),rr=22+p*105;ctx.save();ctx.globalAlpha=1-p;ctx.strokeStyle="#ffd75e";ctx.lineWidth=9*(1-p)+2;ctx.beginPath();ctx.arc(e.x,e.y,rr,0,Math.PI*2);ctx.stroke();ctx.fillStyle="rgba(255,96,70,.2)";ctx.beginPath();ctx.arc(e.x,e.y,rr*.7,0,Math.PI*2);ctx.fill();ctx.restore()});effects=effects.filter(e=>e.t<.46);requestAnimationFrame(frame);
   }
-  function point(clientX){const r=canvas.getBoundingClientRect();aim=clamp((clientX-r.left)/r.width*W,18,W-18)}
+  function point(clientX,clientY){const r=canvas.getBoundingClientRect();aim=clamp((clientX-r.left)/r.width*W,18,W-18);return{x:aim,y:clamp((clientY-r.top)/r.height*H,0,H)}}
   function cleanName(v){return(v||"默认用户").replace(/[\u0000-\u001f]/g,"").slice(0,12)||"默认用户"}
   function readRanks(){try{return JSON.parse(localStorage.getItem("friend-merge-ranks")||"[]")}catch{return[]}}
   function renderRanks(){const rows=readRanks();$("#rankList").innerHTML=rows.length?rows.map((r,i)=>`<div class="rank-row"><span>${i+1}</span><span></span><strong></strong></div>`).join(""):'<div class="empty">还没有成绩，等你来上榜。</div>';rows.forEach((r,i)=>{const row=$("#rankList").children[i];row.children[1].textContent=r.name;row.children[2].textContent=r.score})}
-  canvas.addEventListener("pointermove",e=>point(e.clientX));canvas.addEventListener("pointerdown",e=>{pointerDown=true;point(e.clientX);canvas.setPointerCapture(e.pointerId);if(e.pointerType==="mouse")drop()});canvas.addEventListener("pointerup",e=>{point(e.clientX);if(pointerDown&&e.pointerType!=="mouse")drop();pointerDown=false});
+  canvas.addEventListener("pointermove",e=>point(e.clientX,e.clientY));canvas.addEventListener("pointerdown",e=>{const p=point(e.clientX,e.clientY);if(toolMode==="bomb"){bombAt(p.x,p.y);pointerDown=false;return}pointerDown=true;canvas.setPointerCapture(e.pointerId);if(e.pointerType==="mouse")drop()});canvas.addEventListener("pointerup",e=>{point(e.clientX,e.clientY);if(pointerDown&&e.pointerType!=="mouse")drop();pointerDown=false});
   addEventListener("keydown",e=>{if(e.target.tagName==="INPUT")return;if(e.key==="ArrowLeft")aim=clamp(aim-12,20,W-20);if(e.key==="ArrowRight")aim=clamp(aim+12,20,W-20);if((e.key===" "||e.key==="Enter")&&!over){e.preventDefault();drop()}if(e.key.toLowerCase()==="r")reset()});
   $("#restart").onclick=$("#again").onclick=reset;$("#mute").onclick=()=>{muted=!muted;localStorage.setItem("friend-merge-muted",muted?"1":"0");updateUI()};
+  $("#bomb").onclick=()=>{if(!bombUses)return;toolMode=toolMode==="bomb"?null:"bomb";showHint(toolMode==="bomb"?"点击游戏区域，炸掉附近1—5级人物":"已取消炸弹");updateUI()};$("#shovel").onclick=useShovel;
   const dialog=$("#rankDialog");$$("[data-open-rank]").forEach(b=>b.onclick=()=>{renderRanks();dialog.showModal()});$("#closeRank").onclick=()=>dialog.close();
   $("#playerName").value=localStorage.getItem("friend-merge-name")||"默认用户";$("#playerName").oninput=e=>{const n=cleanName(e.target.value);localStorage.setItem("friend-merge-name",n)};
   $("#chain").innerHTML=T.map((t,i)=>`<div class="chain-avatar" title="${i+1}级 · ${t[4]}" style="border-color:${C[i]}"><img src="./${t[0]}" alt="" style="object-position:${t[1]*100}% ${t[2]*100}%"></div>`).join("");
