@@ -3,16 +3,19 @@
   const W=420,H=700,DANGER=116,DANGER_TIME=1.5,BOMB_MAX_TIER=4,R=[17,21,26,32,39,47,57,68,81,96,112,130,150];
   const C=["#45d7ff","#77e6cb","#a9ef78","#ffe06b","#ffb45f","#ff8d72","#ff70a8","#d786ff","#9f8cff","#6ea5ff","#ffd34e","#ff9bde","#fff08a"];
   const T=[
-    ["characters/new-01.png",.5,.5,1,"儿时奕轩"],["characters/new-02.png",.5,.5,1,"VR奕轩"],["characters/05.png",.5,.5,1,"高市罗锴"],
-    ["characters/02.png",.5,.5,1,"博饼祖延"],["characters/06.png",.5,.5,1,"团日罗锴"],["characters/03.png",.5,.5,1,"骑车仕钰"],
-    ["characters/11.png",.5,.5,1,"睡觉仕钰"],["characters/new-03.png",.5,.5,1,"Daddy罗锴"],["characters/08.png",.5,.5,1,"唱歌仕钰"],
-    ["characters/new-04.png",.5,.5,1,"蹲着的罗锴"],["characters/07.png",.5,.5,1,"军训仕钰"],["characters/new-05.png",.5,.5,1,"大树祖延"],
-    ["characters/new-06.png",.5,.5,1,"小红帽仕钰"]
+    ["characters/new-01.webp",.5,.5,1,"儿时奕轩"],["characters/new-02.webp",.5,.5,1,"VR奕轩"],["characters/05.webp",.5,.5,1,"高市罗锴"],
+    ["characters/02.webp",.5,.5,1,"博饼祖延"],["characters/06.webp",.5,.5,1,"团日罗锴"],["characters/03.webp",.5,.5,1,"骑车仕钰"],
+    ["characters/11.webp",.5,.5,1,"睡觉仕钰"],["characters/new-03.webp",.5,.5,1,"Daddy罗锴"],["characters/08.webp",.5,.5,1,"唱歌仕钰"],
+    ["characters/new-04.webp",.5,.5,1,"蹲着的罗锴"],["characters/07.webp",.5,.5,1,"军训仕钰"],["characters/new-05.webp",.5,.5,1,"大树祖延"],
+    ["characters/new-06.webp",.5,.5,1,"小红帽仕钰"]
   ];
   const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-  const canvas=$("#game"),ctx=canvas.getContext("2d"),imgs=T.map(t=>Object.assign(new Image(),{src:`./${t[0]}`}));
+  const canvas=$("#game"),ctx=canvas.getContext("2d"),imgs=T.map(()=>new Image());
+  imgs.slice(0,5).forEach((im,i)=>{im.decoding="async";im.fetchPriority="high";im.src=`./${T[i][0]}`});
   const bgImage=Object.assign(new Image(),{src:"./background-dorm.jpeg"});
-  const spritesReady=()=>imgs.every(im=>im.complete&&im.naturalWidth>0);
+  const spritesReady=()=>imgs.slice(0,5).every(im=>im.complete&&im.naturalWidth>0);
+  let restStarted=false;
+  function loadRemainingSprites(){if(restStarted)return;restStarted=true;imgs.slice(5).forEach((im,j)=>{const i=j+5;im.decoding="async";im.src=`./${T[i][0]}`});$$('#chain img[data-src]').forEach(im=>{im.src=im.dataset.src;im.removeAttribute('data-src')})}
   let balls=[],id=1,aim=W/2,next=0,score=0,best=+(localStorage.getItem("friend-merge-best")||0);
   let cooldown=0,over=false,muted=localStorage.getItem("friend-merge-muted")==="1",last=0,pointerDown=false;
   let toolMode=null,bombUses=1,shovelUses=1,effects=[],hintTimer=0;
@@ -87,7 +90,7 @@
     ctx.setLineDash([7,7]);ctx.strokeStyle="rgba(255,117,144,.76)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,DANGER);ctx.lineTo(W,DANGER);ctx.stroke();
     const dangerOver=balls.reduce((m,b)=>Math.max(m,b.over||0),0);if(dangerOver>0){const left=Math.max(0,DANGER_TIME-dangerOver);ctx.fillStyle="rgba(255,65,105,.18)";ctx.fillRect(0,0,W,DANGER);ctx.fillStyle="#fff";ctx.font='800 14px "PingFang SC",sans-serif';ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(`危险！连续静止 ${left.toFixed(1)} 秒后结束`,W/2,DANGER-17)}
     ctx.setLineDash([5,6]);ctx.strokeStyle="rgba(126,224,255,.42)";ctx.beginPath();ctx.moveTo(aim,25);ctx.lineTo(aim,92);ctx.stroke();ctx.setLineDash([]);
-    if(spritesReady()){balls.forEach(drawAvatar);ctx.globalAlpha=performance.now()<cooldown?.34:.83;const g=ball(next,clamp(aim,R[next],W-R[next]),66);id--;g.r=R[next]*.86;drawAvatar(g);ctx.globalAlpha=1}else{ctx.fillStyle="rgba(5,10,24,.72)";ctx.beginPath();ctx.roundRect(W/2-70,H/2-22,140,44,14);ctx.fill();ctx.fillStyle="#fff";ctx.font='700 15px "PingFang SC",sans-serif';ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("人物加载中…",W/2,H/2)}effects.forEach(e=>{e.t+=dt;const p=Math.min(1,e.t/.46),rr=22+p*105;ctx.save();ctx.globalAlpha=1-p;ctx.strokeStyle="#ffd75e";ctx.lineWidth=9*(1-p)+2;ctx.beginPath();ctx.arc(e.x,e.y,rr,0,Math.PI*2);ctx.stroke();ctx.fillStyle="rgba(255,96,70,.2)";ctx.beginPath();ctx.arc(e.x,e.y,rr*.7,0,Math.PI*2);ctx.fill();ctx.restore()});effects=effects.filter(e=>e.t<.46);requestAnimationFrame(frame);
+    if(spritesReady()){loadRemainingSprites();balls.forEach(drawAvatar);ctx.globalAlpha=performance.now()<cooldown?.34:.83;const g=ball(next,clamp(aim,R[next],W-R[next]),66);id--;g.r=R[next]*.86;drawAvatar(g);ctx.globalAlpha=1}else{ctx.fillStyle="rgba(5,10,24,.72)";ctx.beginPath();ctx.roundRect(W/2-70,H/2-22,140,44,14);ctx.fill();ctx.fillStyle="#fff";ctx.font='700 15px "PingFang SC",sans-serif';ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("人物加载中…",W/2,H/2)}effects.forEach(e=>{e.t+=dt;const p=Math.min(1,e.t/.46),rr=22+p*105;ctx.save();ctx.globalAlpha=1-p;ctx.strokeStyle="#ffd75e";ctx.lineWidth=9*(1-p)+2;ctx.beginPath();ctx.arc(e.x,e.y,rr,0,Math.PI*2);ctx.stroke();ctx.fillStyle="rgba(255,96,70,.2)";ctx.beginPath();ctx.arc(e.x,e.y,rr*.7,0,Math.PI*2);ctx.fill();ctx.restore()});effects=effects.filter(e=>e.t<.46);requestAnimationFrame(frame);
   }
   function point(clientX,clientY){const r=canvas.getBoundingClientRect();aim=clamp((clientX-r.left)/r.width*W,18,W-18);return{x:aim,y:clamp((clientY-r.top)/r.height*H,0,H)}}
   function cleanName(v){return(v||"默认用户").replace(/[\u0000-\u001f]/g,"").slice(0,12)||"默认用户"}
@@ -99,6 +102,6 @@
   $("#bomb").onclick=()=>{if(!bombUses)return;toolMode=toolMode==="bomb"?null:"bomb";showHint(toolMode==="bomb"?"点击游戏区域，炸掉附近1—5级人物":"已取消炸弹");updateUI()};$("#shovel").onclick=useShovel;
   const dialog=$("#rankDialog");$$("[data-open-rank]").forEach(b=>b.onclick=()=>{renderRanks();dialog.showModal()});$("#closeRank").onclick=()=>dialog.close();
   $("#playerName").value=localStorage.getItem("friend-merge-name")||"默认用户";$("#playerName").oninput=e=>{const n=cleanName(e.target.value);localStorage.setItem("friend-merge-name",n)};
-  $("#chain").innerHTML=T.map((t,i)=>`<div class="chain-avatar" title="${i+1}级 · ${t[4]}" style="border-color:${C[i]}"><img src="./${t[0]}" alt="" style="object-position:${t[1]*100}% ${t[2]*100}%"></div>`).join("");
+  $("#chain").innerHTML=T.map((t,i)=>`<div class="chain-avatar" title="${i+1}级 · ${t[4]}" style="border-color:${C[i]}"><img ${i<5?`src="./${t[0]}"`:`data-src="./${t[0]}"`} alt="" style="object-position:${t[1]*100}% ${t[2]*100}%"></div>`).join("");
   reset();requestAnimationFrame(frame);
 })();
