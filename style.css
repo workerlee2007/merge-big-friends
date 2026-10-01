@@ -1,6 +1,6 @@
 :root{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;color:#f5f7ff;background:#080d22}
 *{box-sizing:border-box}html,body{min-height:100%;margin:0}button,input{font:inherit}
-.game-shell{position:relative;min-height:100dvh;overflow:auto;padding:18px;background:radial-gradient(circle at 20% 15%,rgba(70,91,220,.25),transparent 32%),radial-gradient(circle at 80% 85%,rgba(255,75,145,.18),transparent 34%),#080d22}
+.game-shell{position:relative;min-height:100dvh;overflow:auto;padding:18px;background:linear-gradient(rgba(5,10,24,.78),rgba(5,10,24,.9)),url("./background-dorm.jpeg") center/cover fixed,#080d22}
 .game-shell:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.14;background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);background-size:42px 42px}
 .aurora{position:fixed;width:360px;height:360px;border-radius:50%;filter:blur(90px);opacity:.22}.aurora.one{left:-180px;top:10%;background:#40c7ff}.aurora.two{right:-180px;bottom:-60px;background:#ff4b94}
 .game-layout{position:relative;z-index:1;min-height:calc(100dvh - 36px);max-width:1140px;margin:auto;display:grid;grid-template-columns:minmax(430px,560px) minmax(270px,320px);align-items:center;justify-content:center;gap:clamp(16px,3vw,34px)}

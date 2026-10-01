@@ -10,6 +10,7 @@
   ];
   const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const canvas=$("#game"),ctx=canvas.getContext("2d"),imgs=T.map(t=>Object.assign(new Image(),{src:`./${t[0]}`}));
+  const bgImage=Object.assign(new Image(),{src:"./background-dorm.jpeg"});
   let balls=[],id=1,aim=W/2,next=0,score=0,best=+(localStorage.getItem("friend-merge-best")||0);
   let cooldown=0,over=false,muted=localStorage.getItem("friend-merge-muted")==="1",last=0,pointerDown=false;
   const ball=(tier,x,y)=>({id:id++,tier,x,y,vx:0,vy:0,r:R[tier],age:0,over:0,squash:0,dead:false});
@@ -63,8 +64,8 @@
   function frame(now){
     const dt=Math.min(last?(now-last)/1000:1/60,.025);last=now;if(!over)physics(dt);
     const dpr=Math.min(devicePixelRatio||1,2);if(canvas.width!==W*dpr||canvas.height!==H*dpr){canvas.width=W*dpr;canvas.height=H*dpr}ctx.setTransform(dpr,0,0,dpr,0,0);
-    const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,"#111b42");bg.addColorStop(.55,"#142457");bg.addColorStop(1,"#0a102a");ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
-    ctx.fillStyle="rgba(255,255,255,.025)";for(let y=0;y<H;y+=28)for(let x=(y/28)%2?14:0;x<W;x+=28){ctx.beginPath();ctx.arc(x,y,1.2,0,Math.PI*2);ctx.fill()}
+    if(bgImage.complete&&bgImage.naturalWidth){const scale=Math.max(W/bgImage.naturalWidth,H/bgImage.naturalHeight),dw=bgImage.naturalWidth*scale,dh=bgImage.naturalHeight*scale;ctx.save();ctx.filter="brightness(.72) saturate(.78)";ctx.drawImage(bgImage,(W-dw)/2,(H-dh)/2,dw,dh);ctx.restore()}else{ctx.fillStyle="#10182c";ctx.fillRect(0,0,W,H)}
+    const shade=ctx.createLinearGradient(0,0,0,H);shade.addColorStop(0,"rgba(5,10,24,.42)");shade.addColorStop(.58,"rgba(5,10,24,.25)");shade.addColorStop(1,"rgba(5,10,24,.5)");ctx.fillStyle=shade;ctx.fillRect(0,0,W,H);
     ctx.setLineDash([7,7]);ctx.strokeStyle="rgba(255,117,144,.76)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,DANGER);ctx.lineTo(W,DANGER);ctx.stroke();
     ctx.setLineDash([5,6]);ctx.strokeStyle="rgba(126,224,255,.42)";ctx.beginPath();ctx.moveTo(aim,25);ctx.lineTo(aim,92);ctx.stroke();ctx.setLineDash([]);
     balls.forEach(drawAvatar);ctx.globalAlpha=performance.now()<cooldown?.34:.83;const g=ball(next,clamp(aim,R[next],W-R[next]),66);id--;g.r=R[next]*.86;drawAvatar(g);ctx.globalAlpha=1;requestAnimationFrame(frame);
