@@ -12,6 +12,7 @@
   const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const canvas=$("#game"),ctx=canvas.getContext("2d"),imgs=T.map(t=>Object.assign(new Image(),{src:`./${t[0]}`}));
   const bgImage=Object.assign(new Image(),{src:"./background-dorm.jpeg"});
+  const spritesReady=()=>imgs.every(im=>im.complete&&im.naturalWidth>0);
   let balls=[],id=1,aim=W/2,next=0,score=0,best=+(localStorage.getItem("friend-merge-best")||0);
   let cooldown=0,over=false,muted=localStorage.getItem("friend-merge-muted")==="1",last=0,pointerDown=false;
   const ball=(tier,x,y)=>({id:id++,tier,x,y,vx:0,vy:0,r:R[tier],age:0,over:0,squash:0,nameTimer:0,dead:false});
@@ -28,7 +29,7 @@
   }
   function reset(){balls=[];score=0;aim=W/2;next=Math.floor(Math.random()*5);cooldown=0;over=false;$("#gameOver").classList.add("hidden");updateUI()}
   function drop(){
-    if(over||performance.now()<cooldown)return;
+    if(over||!spritesReady()||performance.now()<cooldown)return;
     const b=ball(next,clamp(aim,R[next]+4,W-R[next]-4),66);b.vy=30;b.nameTimer=1.55;balls.push(b);cooldown=performance.now()+340;
     next=Math.floor(Math.random()*5);ping(260+b.tier*35,.05);updateUI();
   }
@@ -42,7 +43,6 @@
     const im=imgs[b.tier],s=clamp(b.squash||0,0,.34),maxW=b.r*2.34*(1+s*.62),maxH=b.r*2.62*(1-s*.48);
     ctx.save();ctx.translate(b.x,b.y+b.r*.05);ctx.shadowColor="rgba(0,0,0,.38)";ctx.shadowBlur=Math.max(4,b.r*.18);ctx.shadowOffsetY=Math.max(2,b.r*.07);
     if(im.complete&&im.naturalWidth){const scale=Math.min(maxW/im.naturalWidth,maxH/im.naturalHeight),dw=im.naturalWidth*scale,dh=im.naturalHeight*scale;ctx.drawImage(im,-dw/2,-dh/2,dw,dh)}
-    else{ctx.fillStyle=C[b.tier];ctx.beginPath();ctx.roundRect(-b.r*.7,-b.r,b.r*1.4,b.r*2,b.r*.35);ctx.fill()}
     ctx.restore();
     if(b.nameTimer>0){const label=T[b.tier][4],alpha=Math.min(1,b.nameTimer*1.8),fontSize=clamp(9+b.tier*.45,9,14);ctx.save();ctx.globalAlpha=alpha;ctx.font=`700 ${fontSize}px "PingFang SC",sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle";const tw=ctx.measureText(label).width,pad=6,lw=tw+pad*2,ly=b.y+b.r+15;ctx.fillStyle="rgba(5,10,24,.82)";ctx.beginPath();ctx.roundRect(b.x-lw/2,ly-fontSize*.8,lw,fontSize*1.6,8);ctx.fill();ctx.fillStyle="#fff";ctx.fillText(label,b.x,ly);ctx.restore()}
   }
@@ -72,7 +72,7 @@
     const shade=ctx.createLinearGradient(0,0,0,H);shade.addColorStop(0,"rgba(5,10,24,.42)");shade.addColorStop(.58,"rgba(5,10,24,.25)");shade.addColorStop(1,"rgba(5,10,24,.5)");ctx.fillStyle=shade;ctx.fillRect(0,0,W,H);
     ctx.setLineDash([7,7]);ctx.strokeStyle="rgba(255,117,144,.76)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,DANGER);ctx.lineTo(W,DANGER);ctx.stroke();
     ctx.setLineDash([5,6]);ctx.strokeStyle="rgba(126,224,255,.42)";ctx.beginPath();ctx.moveTo(aim,25);ctx.lineTo(aim,92);ctx.stroke();ctx.setLineDash([]);
-    balls.forEach(drawAvatar);ctx.globalAlpha=performance.now()<cooldown?.34:.83;const g=ball(next,clamp(aim,R[next],W-R[next]),66);id--;g.r=R[next]*.86;drawAvatar(g);ctx.globalAlpha=1;requestAnimationFrame(frame);
+    if(spritesReady()){balls.forEach(drawAvatar);ctx.globalAlpha=performance.now()<cooldown?.34:.83;const g=ball(next,clamp(aim,R[next],W-R[next]),66);id--;g.r=R[next]*.86;drawAvatar(g);ctx.globalAlpha=1}else{ctx.fillStyle="rgba(5,10,24,.72)";ctx.beginPath();ctx.roundRect(W/2-70,H/2-22,140,44,14);ctx.fill();ctx.fillStyle="#fff";ctx.font='700 15px "PingFang SC",sans-serif';ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("人物加载中…",W/2,H/2)}requestAnimationFrame(frame);
   }
   function point(clientX){const r=canvas.getBoundingClientRect();aim=clamp((clientX-r.left)/r.width*W,18,W-18)}
   function cleanName(v){return(v||"默认用户").replace(/[\u0000-\u001f]/g,"").slice(0,12)||"默认用户"}
