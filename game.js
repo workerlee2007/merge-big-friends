@@ -3,16 +3,16 @@
   const W=420,H=700,DANGER=116,R=[18,22,27,33,40,49,59,70,83,98,116];
   const C=["#45d7ff","#77e6cb","#a9ef78","#ffe06b","#ffb45f","#ff8d72","#ff70a8","#d786ff","#9f8cff","#6ea5ff","#ffd34e"];
   const T=[
-    ["09.jpg",.45,.36,.72,"认真脸"],["04.jpg",.69,.28,.66,"回眸笑"],["05.jpg",.51,.28,.64,"包饺子"],
-    ["02.jpg",.50,.20,.62,"骰子王"],["06.jpg",.54,.25,.72,"台上范"],["03.jpg",.44,.30,.84,"骑车侠"],
-    ["11.jpg",.42,.31,.62,"困困版"],["10.jpg",.50,.30,.66,"宿舍版"],["08.jpg",.52,.31,.67,"麦霸版"],
-    ["01.jpg",.53,.27,.60,"大碗王"],["07.jpg",.50,.31,.78,"终极教官"]
+    ["characters/09.png",.5,.5,1,"认真脸"],["characters/04.png",.5,.5,1,"回眸笑"],["characters/05.png",.5,.5,1,"包饺子"],
+    ["characters/02.png",.5,.5,1,"骰子王"],["characters/06.png",.5,.5,1,"台上范"],["characters/03.png",.5,.5,1,"骑车侠"],
+    ["characters/11.png",.5,.5,1,"困困版"],["characters/10.png",.5,.5,1,"宿舍版"],["characters/08.png",.5,.5,1,"麦霸版"],
+    ["characters/01.png",.5,.5,1,"大碗王"],["characters/07.png",.5,.5,1,"终极教官"]
   ];
   const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const canvas=$("#game"),ctx=canvas.getContext("2d"),imgs=T.map(t=>Object.assign(new Image(),{src:`./${t[0]}`}));
   let balls=[],id=1,aim=W/2,next=0,score=0,best=+(localStorage.getItem("friend-merge-best")||0);
   let cooldown=0,over=false,muted=localStorage.getItem("friend-merge-muted")==="1",last=0,pointerDown=false;
-  const ball=(tier,x,y)=>({id:id++,tier,x,y,vx:0,vy:0,r:R[tier],angle:0,spin:0,age:0,over:0,dead:false});
+  const ball=(tier,x,y)=>({id:id++,tier,x,y,vx:0,vy:0,r:R[tier],age:0,over:0,squash:0,dead:false});
   function ping(pitch=440,d=.06){
     if(muted)return;
     try{const A=window.AudioContext||window.webkitAudioContext;if(!A)return;const a=new A(),o=a.createOscillator(),g=a.createGain();o.frequency.value=pitch;g.gain.setValueAtTime(.055,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);o.connect(g).connect(a.destination);o.start();o.stop(a.currentTime+d)}catch{}
@@ -35,23 +35,25 @@
     $("#finalScore").textContent=score;$("#finalBest").textContent=best;$("#gameOver").classList.remove("hidden");ping(120,.35);updateUI();
   }
   function drawAvatar(b){
-    const im=imgs[b.tier],t=T[b.tier];ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.angle);ctx.beginPath();ctx.arc(0,0,b.r-2,0,Math.PI*2);ctx.clip();
-    if(im.complete&&im.naturalWidth){const size=Math.min(im.naturalWidth,im.naturalHeight)*t[3],sx=clamp(im.naturalWidth*t[1]-size/2,0,im.naturalWidth-size),sy=clamp(im.naturalHeight*t[2]-size/2,0,im.naturalHeight-size);ctx.drawImage(im,sx,sy,size,size,-b.r,-b.r,b.r*2,b.r*2)}
-    else{ctx.fillStyle=C[b.tier];ctx.fillRect(-b.r,-b.r,b.r*2,b.r*2)}
-    const sh=ctx.createRadialGradient(-b.r*.35,-b.r*.4,2,0,0,b.r);sh.addColorStop(0,"rgba(255,255,255,.14)");sh.addColorStop(.72,"rgba(255,255,255,0)");sh.addColorStop(1,"rgba(4,8,25,.35)");ctx.fillStyle=sh;ctx.fillRect(-b.r,-b.r,b.r*2,b.r*2);ctx.restore();
-    ctx.beginPath();ctx.arc(b.x,b.y,b.r-1,0,Math.PI*2);ctx.strokeStyle=C[b.tier];ctx.lineWidth=Math.max(3,b.r*.08);ctx.stroke();
+    const im=imgs[b.tier],s=clamp(b.squash||0,0,.34),maxW=b.r*2.34*(1+s*.62),maxH=b.r*2.62*(1-s*.48);
+    ctx.save();ctx.translate(b.x,b.y+b.r*.05);ctx.shadowColor="rgba(0,0,0,.38)";ctx.shadowBlur=Math.max(4,b.r*.18);ctx.shadowOffsetY=Math.max(2,b.r*.07);
+    if(im.complete&&im.naturalWidth){const scale=Math.min(maxW/im.naturalWidth,maxH/im.naturalHeight),dw=im.naturalWidth*scale,dh=im.naturalHeight*scale;ctx.drawImage(im,-dw/2,-dh/2,dw,dh)}
+    else{ctx.fillStyle=C[b.tier];ctx.beginPath();ctx.roundRect(-b.r*.7,-b.r,b.r*1.4,b.r*2,b.r*.35);ctx.fill()}
+    ctx.restore();
   }
   function physics(dt){
     let gained=0;
     for(let step=0;step<3;step++){
       const d=dt/3;
-      for(const b of balls){if(b.dead)continue;b.age+=d;b.vy+=1500*d;b.x+=b.vx*d;b.y+=b.vy*d;b.angle+=b.spin*d;b.vx*=.999;b.spin*=.995;
-        if(b.x-b.r<0){b.x=b.r;b.vx=Math.abs(b.vx)*.38}if(b.x+b.r>W){b.x=W-b.r;b.vx=-Math.abs(b.vx)*.38}if(b.y+b.r>H){b.y=H-b.r;b.vy=-Math.abs(b.vy)*.26;b.vx*=.94}}
+      for(const b of balls){if(b.dead)continue;b.age+=d;b.vy+=1500*d;b.x+=b.vx*d;b.y+=b.vy*d;b.vx*=.999;b.squash*=.86;
+        if(b.x-b.r<0){b.x=b.r;b.squash=Math.max(b.squash,Math.min(.24,Math.abs(b.vx)/650));b.vx=Math.abs(b.vx)*.48}
+        if(b.x+b.r>W){b.x=W-b.r;b.squash=Math.max(b.squash,Math.min(.24,Math.abs(b.vx)/650));b.vx=-Math.abs(b.vx)*.48}
+        if(b.y+b.r>H){b.y=H-b.r;b.squash=Math.max(b.squash,Math.min(.32,Math.abs(b.vy)/760));b.vy=-Math.abs(b.vy)*.42;b.vx*=.955}}
       for(let iter=0;iter<3;iter++)for(let i=0;i<balls.length;i++){const a=balls[i];if(a.dead)continue;for(let j=i+1;j<balls.length;j++){const b=balls[j];if(b.dead)continue;
         const dx=b.x-a.x,dy=b.y-a.y,md=a.r+b.r,d2=dx*dx+dy*dy;if(d2>=md*md||d2===0)continue;const dist=Math.sqrt(d2),nx=dx/dist,ny=dy/dist;
-        if(iter===0&&a.tier===b.tier){a.dead=b.dead=true;if(a.tier<T.length-1){const m=ball(a.tier+1,(a.x+b.x)/2,(a.y+b.y)/2);m.vx=(a.vx+b.vx)*.22;m.vy=Math.min(-130,(a.vy+b.vy)*.15-80);m.spin=(a.spin+b.spin)*.3;balls.push(m);gained+=(a.tier+1)*(a.tier+2)/2;ping(420+a.tier*55,.09);if(navigator.vibrate&&!muted)navigator.vibrate(18+a.tier*3)}else{gained+=100;ping(980,.18)}continue}
+        if(iter===0&&a.tier===b.tier){a.dead=b.dead=true;if(a.tier<T.length-1){const m=ball(a.tier+1,(a.x+b.x)/2,(a.y+b.y)/2);m.vx=(a.vx+b.vx)*.25;m.vy=Math.min(-155,(a.vy+b.vy)*.15-105);m.squash=.32;balls.push(m);gained+=(a.tier+1)*(a.tier+2)/2;ping(420+a.tier*55,.09);if(navigator.vibrate&&!muted)navigator.vibrate(18+a.tier*3)}else{gained+=100;ping(980,.18)}continue}
         const overlap=md-dist,total=a.r*a.r+b.r*b.r,ma=b.r*b.r/total,mb=a.r*a.r/total;a.x-=nx*overlap*ma;a.y-=ny*overlap*ma;b.x+=nx*overlap*mb;b.y+=ny*overlap*mb;
-        const rel=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;if(rel<0){const imp=-rel*.58;a.vx-=nx*imp*ma;a.vy-=ny*imp*ma;b.vx+=nx*imp*mb;b.vy+=ny*imp*mb}
+        const rel=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;if(rel<0){const imp=-rel*.72,compression=Math.min(.25,-rel/780);a.vx-=nx*imp*ma;a.vy-=ny*imp*ma;b.vx+=nx*imp*mb;b.vy+=ny*imp*mb;a.squash=Math.max(a.squash,compression);b.squash=Math.max(b.squash,compression)}
       }}
       if(balls.some(b=>b.dead))balls=balls.filter(b=>!b.dead);
     }
